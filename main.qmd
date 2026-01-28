@@ -4,10 +4,74 @@ subtitle: ""
 date: ""
 format:
   typst:
+    papersize: a4
+    margin:
+      x: 1.27cm
+      top: 2.5cm
+      bottom: 1.27cm
+    mainfont: "Open Sans"
+    fontsize: 10pt
     include-in-header:
       text: |
+        // Page header with logo
+        #set page(
+          header: [
+            #set align(left)
+            #image("logo.png", width: 20%)
+          ],
+          header-ascent: 20pt
+        )
+
+        // Links styling
         #show link: set text(fill: blue)
         #show link: underline
+
+        // Heading 1 styling (## no markdown vira level 1 no Typst)
+        // Este é o Pilar - fundo azul escuro #004077
+        #show heading.where(level: 1): it => block(
+          width: 100%,
+          fill: rgb("#004077"),
+          inset: 8pt,
+          above: 16pt,
+          below: 0pt,
+          text(
+            fill: white,
+            size: 14pt,
+            weight: "bold",
+            it.body
+          )
+        )
+
+        // Heading 2 styling (### no markdown vira level 2 no Typst)
+        // Estas são as seções (AÇÃO, PRODUTO, etc.) - fundo azul médio #005CA8
+        #show heading.where(level: 2): it => block(
+          width: 100%,
+          fill: rgb("#005CA8"),
+          inset: 8pt,
+          above: 12pt,
+          below: 12pt,
+          text(
+            fill: white,
+            size: 14pt,
+            weight: "bold",
+            it.body
+          )
+        )
+
+        // Table styling - full width, no borders
+        #set table(
+          stroke: none,
+          fill: (col, row) => if row == 0 {
+            rgb("#A4CFED")
+          } else {
+            none
+          },
+          inset: 8pt
+        )
+
+        #show table: set block(width: 100%)
+        #show table.cell.where(y: 0): set text(weight: "bold", size: 10pt)
+        #show table.cell: set text(size: 10pt)
 params:
   row_index: 1
 ---
