@@ -1,0 +1,186 @@
+---
+title: ""
+subtitle: ""
+date: ""
+format:
+  typst:
+    include-in-header:
+      text: |
+        #show link: set text(fill: blue)
+        #show link: underline
+params:
+  row_index: 1
+---
+
+
+```{r}
+#| label: setup
+#| include: false
+
+library(tidyverse)
+library(glue)
+library(knitr)
+```
+
+```{r}
+#| label: read
+#| include: false
+
+# Lê os dados processados pelo render.R
+df_input <- readRDS("data/processed_data.rds")
+```
+
+```{r}
+#| label: input
+#| include: false
+
+# Usa o parâmetro row_index para selecionar a linha
+row_idx = params$row_index
+
+input_tipo = slice(df_input, row_idx)$tipo_de_produto_a_ser_enviado
+input_pilar = slice(df_input, row_idx)$pilar
+input_acao_id = slice(df_input, row_idx)$acao
+input_acao_name = slice(df_input, row_idx)$nome_acao
+input_prod_id = slice(df_input, row_idx)$produto
+input_prod_name = slice(df_input, row_idx)$nome_produto
+input_prod_detran_name = slice(df_input, row_idx)$titulo_do_produto_detran
+input_justificativa = slice(df_input, row_idx)$descricao_e_justificativa
+input_indicadores = slice(df_input, row_idx)$indicador
+input_ano_ref = slice(df_input, row_idx)$ano_referencia
+input_resultado = slice(df_input, row_idx)$valor_resultado
+input_area = slice(df_input, row_idx)$area_responsavel
+input_links = slice(df_input, row_idx)$links_comprovatorios
+input_arq = slice(df_input, row_idx)$arquivos_comprovatorios
+
+
+```
+
+```{r}
+#| label: format-links
+#| include: false
+
+# Função para formatar links em lista
+format_links <- function(links_string) {
+    if (is.na(links_string) || links_string == "") {
+        return("Nenhum link fornecido")
+    }
+
+    # Separa os links por ";"
+    links <- str_split(links_string, ";")[[1]] |>
+        str_trim() |>
+        discard(~ .x == "")
+
+    if (length(links) == 0) {
+        return("Nenhum link fornecido")
+    }
+
+    # Cria lista numerada com hyperlinks usando texto descritivo
+    formatted <- map2_chr(seq_along(links), links, function(idx, url) {
+        # Extrai o nome do arquivo da URL
+        filename <- str_extract(url, "[^/]+\\.[a-zA-Z0-9]+$")
+        if (is.na(filename)) {
+            filename <- glue("Link {idx}")
+        }
+        # Decodifica caracteres URL-encoded (ex: %20 -> espaço, %C3%AA -> ê)
+        filename <- URLdecode(filename)
+        # Retorna hyperlink com o nome do arquivo como texto
+        glue("{idx}. [{filename}]({url})")
+    })
+
+    return(paste(formatted, collapse = "\n\n"))
+}
+
+# Formata os links e arquivos
+links_formatados <- format_links(input_links)
+arquivos_formatados <- format_links(input_arq)
+```
+
+```{r}
+#| output: asis
+#| echo: false
+
+if (input_tipo == "Plano de Ação") {
+    cat(glue("
+    ## {input_pilar}
+
+    ### AÇÃO
+
+    **{input_acao_id}**: {input_acao_name}
+
+    ### PRODUTO
+
+    **{input_prod_id}**: {input_prod_name}
+
+    **Título do Produto:** {input_prod_detran_name}
+
+    **Descrição e Justificativa:** {input_justificativa}
+
+    ### INDICADORES
+
+    {input_indicadores}
+
+    ### RESULTADOS / METAS
+
+    | Ano de Referência | Valor do Resultado |
+    | --- | --- |
+    | {input_ano_ref} | {input_resultado} |
+
+    ### ÁREA RESPONSÁVEL PELA AÇÃO (Detran-SP)
+
+    {input_area}
+
+    ### ARQUIVOS COMPROBATÓRIOS DA EXECUÇÃO DA META
+
+    **Links:**
+
+    {links_formatados}
+
+    **Arquivos:**
+
+    {arquivos_formatados}
+
+    "))
+}
+
+if (input_tipo == "Produto Novo") {
+    cat(glue("
+    ## {input_pilar}
+
+    ### AÇÃO
+
+    **{input_acao_id}**: {input_acao_name}
+
+    ### {input_prod_id}
+
+    **Título do Produto:** {input_prod_detran_name}
+
+    **Descrição e Justificativa:** {input_justificativa}
+
+    ### INDICADORES
+
+    {input_indicadores}
+
+    ### RESULTADOS / METAS
+
+    | Ano de Referência | Valor do Resultado |
+    | --- | --- |
+    | {input_ano_ref} | {input_resultado} |
+
+    ### ÁREA RESPONSÁVEL PELA AÇÃO (Detran-SP)
+
+    {input_area}
+
+    ### ARQUIVOS COMPROBATÓRIOS DA EXECUÇÃO DA META
+
+    **Links:**
+
+    {links_formatados}
+
+    **Arquivos:**
+
+    {arquivos_formatados}
+
+    "))
+}
+
+```
