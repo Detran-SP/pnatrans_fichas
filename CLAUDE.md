@@ -4,9 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Quarto document project that generates PDF forms ("fichas") for the PNATRANS (Plano Nacional de Redução de Acidentes e Segurança Viária). The project uses Python to dynamically generate structured documents with information about traffic safety management pillars, actions, and products.
+This is a Quarto document project that generates PDF forms ("fichas") for the PNATRANS (Plano Nacional de Redução de Acidentes e Segurança Viária). The project uses Python to dynamically generate structured documents with information about traffic safety management pillars, actions, and products. It includes both a Shiny web app and a CLI script.
 
-## Building and Rendering
+## Running the Shiny App
+
+```bash
+uv run shiny run app
+```
+
+The app allows uploading the Excel mapping spreadsheet, previewing processed data, and exporting all PDFs as a .zip.
+
+## CLI Usage
 
 **Generate all PDFs (processes data + renders each row):**
 ```bash
@@ -18,30 +26,20 @@ uv run python render.py
 quarto render main.qmd
 ```
 
-**Preview with live reload:**
-```bash
-quarto preview main.qmd
-```
+## Project Structure
 
-The output format is Typst, which generates PDF files.
-
-## Document Structure
-
-The `main.qmd` file uses Python code chunks to:
-1. Set up dependencies (`pandas`, `re`, `urllib.parse`)
-2. Read processed data from `data/processed_data.csv`
-3. Select the row based on `row_index` parameter
-4. Format links and generate markdown output using f-strings
-
-The `render.py` script:
-1. Reads Excel input files and the PNATRANS dictionary
-2. Cleans and processes the data (unites columns, normalizes text)
-3. Saves processed data as CSV
-4. Loops through each row calling `quarto render` with parameters
+- `app/` — Shiny web application
+  - `app.py` — UI and server logic
+  - `processing.py` — Data processing functions (clean_names, unite_columns, etc.)
+  - `pdf_generator.py` — PDF generation and zip creation
+- `render.py` — CLI entry point (imports from `app/`)
+- `main.qmd` — Quarto/Typst PDF template
+- `data/arquivos_pnatrans.xlsx` — PNATRANS dictionary (bundled)
+- `logo.png` — Header logo for PDFs
 
 ## Key Dependencies
 
 - Python 3.12+ (managed with uv)
-- Python packages: `pandas`, `openpyxl`
+- Python packages: `pandas`, `openpyxl`, `shiny`
 - Quarto 1.7.29+
 - Typst (via Quarto for PDF rendering)
