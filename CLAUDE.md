@@ -4,11 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Quarto document project that generates PDF forms ("fichas") for the PNATRANS (Plano Nacional de Redução de Acidentes e Segurança Viária). The project uses R to dynamically generate structured documents with information about traffic safety management pillars, actions, and products.
+This is a Quarto document project that generates PDF forms ("fichas") for the PNATRANS (Plano Nacional de Redução de Acidentes e Segurança Viária). The project uses Python to dynamically generate structured documents with information about traffic safety management pillars, actions, and products.
 
 ## Building and Rendering
 
-**Render the main document to PDF:**
+**Generate all PDFs (processes data + renders each row):**
+```bash
+uv run python render.py
+```
+
+**Render a single document to PDF:**
 ```bash
 quarto render main.qmd
 ```
@@ -18,24 +23,25 @@ quarto render main.qmd
 quarto preview main.qmd
 ```
 
-The output format is Typst, which generates a PDF file (`main.pdf`).
+The output format is Typst, which generates PDF files.
 
 ## Document Structure
 
-The `main.qmd` file uses R code chunks to:
-1. Set up dependencies (`dplyr`, `glue`, `knitr`)
-2. Define input parameters (pilar ID/name, ação ID/name, produto details, justification)
-3. Generate formatted output sections using `glue()` for string interpolation
+The `main.qmd` file uses Python code chunks to:
+1. Set up dependencies (`pandas`, `re`, `urllib.parse`)
+2. Read processed data from `data/processed_data.csv`
+3. Select the row based on `row_index` parameter
+4. Format links and generate markdown output using f-strings
 
-Input variables follow this structure:
-- `input_pilar_id` and `input_pilar_name`: Traffic safety pillar identification
-- `input_acao_id` and `input_acao_name`: Action identification
-- `input_prod_id` and `input_prod_name`: Product identification
-- `input_prod_detran_name`: DETRAN-specific product title
-- `input_justificativa`: Multi-paragraph justification text
+The `render.py` script:
+1. Reads Excel input files and the PNATRANS dictionary
+2. Cleans and processes the data (unites columns, normalizes text)
+3. Saves processed data as CSV
+4. Loops through each row calling `quarto render` with parameters
 
 ## Key Dependencies
 
-- R packages: `dplyr`, `glue`, `knitr`
+- Python 3.12+ (managed with uv)
+- Python packages: `pandas`, `openpyxl`
 - Quarto 1.7.29+
 - Typst (via Quarto for PDF rendering)

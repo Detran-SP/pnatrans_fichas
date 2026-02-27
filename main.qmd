@@ -72,179 +72,164 @@ format:
         #show table: set block(width: 100%)
         #show table.cell.where(y: 0): set text(weight: "bold", size: 10pt)
         #show table.cell: set text(size: 10pt)
-params:
-  row_index: 1
 ---
 
 
-```{r}
+```{python}
 #| label: setup
 #| include: false
 
-library(tidyverse)
-library(glue)
-library(knitr)
+import re
+from urllib.parse import unquote
+
+import pandas as pd
 ```
 
-```{r}
+```{python}
+#| label: parameters
+#| tags: [parameters]
+#| include: false
+
+row_index = 1
+```
+
+```{python}
 #| label: read
 #| include: false
 
-# Lê os dados processados pelo render.R
-df_input <- readRDS("data/processed_data.rds")
+# Lê os dados processados pelo render.py
+df_input = pd.read_csv("data/processed_data.csv")
 ```
 
-```{r}
+```{python}
 #| label: input
 #| include: false
 
-# Usa o parâmetro row_index para selecionar a linha
-row_idx = params$row_index
+# Usa o parâmetro row_index para selecionar a linha (1-based no parâmetro)
+row_idx = row_index - 1
+row = df_input.iloc[row_idx]
 
-input_tipo = slice(df_input, row_idx)$tipo_de_produto_a_ser_enviado
-input_pilar = slice(df_input, row_idx)$pilar
-input_acao_id = slice(df_input, row_idx)$acao
-input_acao_name = slice(df_input, row_idx)$nome_acao
-input_prod_id = slice(df_input, row_idx)$produto
-input_prod_name = slice(df_input, row_idx)$nome_produto
-input_prod_detran_name = slice(df_input, row_idx)$titulo_do_produto_detran
-input_justificativa = slice(df_input, row_idx)$descricao_e_justificativa
-input_indicadores = slice(df_input, row_idx)$indicador
-input_ano_ref = slice(df_input, row_idx)$ano_referencia
-input_resultado = slice(df_input, row_idx)$valor_resultado
-input_area = slice(df_input, row_idx)$area_responsavel
-input_links = slice(df_input, row_idx)$links_comprovatorios
-input_arq = slice(df_input, row_idx)$arquivos_comprovatorios
-
-
+input_tipo = row["tipo_de_produto_a_ser_enviado"]
+input_pilar = row["pilar"]
+input_acao_id = row["acao"]
+input_acao_name = row["nome_acao"]
+input_prod_id = row["produto"]
+input_prod_name = row["nome_produto"]
+input_prod_detran_name = row["titulo_do_produto_detran"]
+input_justificativa = row["descricao_e_justificativa"]
+input_indicadores = row["indicador"]
+input_ano_ref = int(row["ano_referencia"])
+input_resultado = int(row["valor_resultado"])
+input_area = row["area_responsavel"]
+input_links = row["links_comprovatorios"]
+input_arq = row["arquivos_comprovatorios"]
 ```
 
-```{r}
+```{python}
 #| label: format-links
 #| include: false
 
-# Função para formatar links em lista
-format_links <- function(links_string) {
-    if (is.na(links_string) || links_string == "") {
-        return("Nenhum link fornecido")
-    }
+def format_links(links_string):
+    """Formata links em lista numerada com hyperlinks."""
+    if pd.isna(links_string) or links_string == "":
+        return "Nenhum link fornecido"
 
-    # Separa os links por ";"
-    links <- str_split(links_string, ";")[[1]] |>
-        str_trim() |>
-        discard(~ .x == "")
+    links = [l.strip() for l in links_string.split(";") if l.strip()]
 
-    if (length(links) == 0) {
-        return("Nenhum link fornecido")
-    }
+    if not links:
+        return "Nenhum link fornecido"
 
-    # Cria lista numerada com hyperlinks usando texto descritivo
-    formatted <- map2_chr(seq_along(links), links, function(idx, url) {
-        # Extrai o nome do arquivo da URL
-        filename <- str_extract(url, "[^/]+\\.[a-zA-Z0-9]+$")
-        if (is.na(filename)) {
-            filename <- glue("Link {idx}")
-        }
-        # Decodifica caracteres URL-encoded (ex: %20 -> espaço, %C3%AA -> ê)
-        filename <- URLdecode(filename)
-        # Retorna hyperlink com o nome do arquivo como texto
-        glue("{idx}. [{filename}]({url})")
-    })
+    formatted = []
+    for idx, url in enumerate(links, 1):
+        match = re.search(r"[^/]+\.[a-zA-Z0-9]+$", url)
+        filename = unquote(match.group()) if match else f"Link {idx}"
+        formatted.append(f"{idx}. [{filename}]({url})")
 
-    return(paste(formatted, collapse = "\n\n"))
-}
+    return "\n\n".join(formatted)
 
-# Formata os links e arquivos
-links_formatados <- format_links(input_links)
-arquivos_formatados <- format_links(input_arq)
+links_formatados = format_links(input_links)
+arquivos_formatados = format_links(input_arq)
 ```
 
-```{r}
+```{python}
 #| output: asis
 #| echo: false
 
-if (input_tipo == "Plano de Ação") {
-    cat(glue("
-    ## {input_pilar}
+if input_tipo == "Plano de Ação":
+    print(f"""## {input_pilar}
 
-    ### AÇÃO
+### AÇÃO
 
-    **{input_acao_id}**: {input_acao_name}
+**{input_acao_id}**: {input_acao_name}
 
-    ### PRODUTO
+### PRODUTO
 
-    **{input_prod_id}**: {input_prod_name}
+**{input_prod_id}**: {input_prod_name}
 
-    **Título do Produto:** {input_prod_detran_name}
+**Título do Produto:** {input_prod_detran_name}
 
-    **Descrição e Justificativa:** {input_justificativa}
+**Descrição e Justificativa:** {input_justificativa}
 
-    ### INDICADORES
+### INDICADORES
 
-    {input_indicadores}
+{input_indicadores}
 
-    ### RESULTADOS / METAS
+### RESULTADOS / METAS
 
-    | Ano de Referência | Valor do Resultado |
-    | --- | --- |
-    | {input_ano_ref} | {input_resultado} |
+| Ano de Referência | Valor do Resultado |
+| --- | --- |
+| {input_ano_ref} | {input_resultado} |
 
-    ### ÁREA RESPONSÁVEL PELA AÇÃO (Detran-SP)
+### ÁREA RESPONSÁVEL PELA AÇÃO (Detran-SP)
 
-    {input_area}
+{input_area}
 
-    ### ARQUIVOS COMPROBATÓRIOS DA EXECUÇÃO DA META
+### ARQUIVOS COMPROBATÓRIOS DA EXECUÇÃO DA META
 
-    **Links:**
+**Links:**
 
-    {links_formatados}
+{links_formatados}
 
-    **Arquivos:**
+**Arquivos:**
 
-    {arquivos_formatados}
+{arquivos_formatados}
+""")
 
-    "))
-}
+if input_tipo == "Produto Novo":
+    print(f"""## {input_pilar}
 
-if (input_tipo == "Produto Novo") {
-    cat(glue("
-    ## {input_pilar}
+### AÇÃO
 
-    ### AÇÃO
+**{input_acao_id}**: {input_acao_name}
 
-    **{input_acao_id}**: {input_acao_name}
+### {input_prod_id}
 
-    ### {input_prod_id}
+**Título do Produto:** {input_prod_detran_name}
 
-    **Título do Produto:** {input_prod_detran_name}
+**Descrição e Justificativa:** {input_justificativa}
 
-    **Descrição e Justificativa:** {input_justificativa}
+### INDICADORES
 
-    ### INDICADORES
+{input_indicadores}
 
-    {input_indicadores}
+### RESULTADOS / METAS
 
-    ### RESULTADOS / METAS
+| Ano de Referência | Valor do Resultado |
+| --- | --- |
+| {input_ano_ref} | {input_resultado} |
 
-    | Ano de Referência | Valor do Resultado |
-    | --- | --- |
-    | {input_ano_ref} | {input_resultado} |
+### ÁREA RESPONSÁVEL PELA AÇÃO (Detran-SP)
 
-    ### ÁREA RESPONSÁVEL PELA AÇÃO (Detran-SP)
+{input_area}
 
-    {input_area}
+### ARQUIVOS COMPROBATÓRIOS DA EXECUÇÃO DA META
 
-    ### ARQUIVOS COMPROBATÓRIOS DA EXECUÇÃO DA META
+**Links:**
 
-    **Links:**
+{links_formatados}
 
-    {links_formatados}
+**Arquivos:**
 
-    **Arquivos:**
-
-    {arquivos_formatados}
-
-    "))
-}
-
+{arquivos_formatados}
+""")
 ```
