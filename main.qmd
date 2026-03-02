@@ -91,14 +91,15 @@ import pandas as pd
 #| include: false
 
 row_index = 1
+csv_path = "data/processed_data.csv"
 ```
 
 ```{python}
 #| label: read
 #| include: false
 
-# Lê os dados processados pelo render.py
-df_input = pd.read_csv("data/processed_data.csv")
+# Lê os dados processados pelo render.py / app
+df_input = pd.read_csv(csv_path)
 ```
 
 ```{python}

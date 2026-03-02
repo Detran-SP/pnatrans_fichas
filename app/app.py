@@ -142,14 +142,18 @@ def server(input: Inputs, output: Outputs, session: Session):
             tmpdir_path = Path(tmpdir)
             pdf_dir = tmpdir_path / "pdfs"
 
+            loop = asyncio.get_running_loop()
+
             def on_progress(current, total):
-                ui.notification_show(
-                    f"Gerando fichas... {current}/{total}",
-                    id=NOTIFICATION_ID,
-                    duration=None,
-                    close_button=False,
-                    type="message",
-                )
+                async def _notify():
+                    ui.notification_show(
+                        f"Gerando fichas... {current}/{total}",
+                        id=NOTIFICATION_ID,
+                        duration=None,
+                        close_button=False,
+                        type="message",
+                    )
+                asyncio.run_coroutine_threadsafe(_notify(), loop)
 
             pdf_files = await asyncio.to_thread(
                 generate_pdfs, df, pdf_dir, on_progress

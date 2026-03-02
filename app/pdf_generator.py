@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import tempfile
 import zipfile
 from collections.abc import Callable
 from datetime import datetime
@@ -20,52 +21,54 @@ def generate_pdfs(
     on_progress: Callable | None = None,
 ) -> list[Path]:
     """Gera PDFs para cada linha do DataFrame e retorna lista de caminhos."""
-    # Escreve CSV onde main.qmd espera
-    csv_path = PROJECT_ROOT / "data" / "processed_data.csv"
-    df.to_csv(csv_path, index=False)
-
     output_dir.mkdir(parents=True, exist_ok=True)
     datetime_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     generated_files: list[Path] = []
 
-    for i in range(len(df)):
-        row = df.iloc[i]
-        produto_detran_clean = sanitize_filename(
-            str(row.get("titulo_do_produto_detran", ""))
-        )
-        produto_clean = re.sub(r"\s+", "_", str(row.get("produto", "")))
-        output_filename = (
-            f"{row['acao']}_{produto_clean}_{produto_detran_clean}"
-            f"_{datetime_stamp}.pdf"
-        )
+    with tempfile.TemporaryDirectory() as tmpdir:
+        csv_path = Path(tmpdir) / "processed_data.csv"
+        df.to_csv(csv_path, index=False)
 
-        try:
-            subprocess.run(
-                [
-                    "quarto",
-                    "render",
-                    "main.qmd",
-                    "--output",
-                    output_filename,
-                    "--execute-param",
-                    f"row_index:{i + 1}",
-                ],
-                capture_output=True,
-                text=True,
-                check=True,
-                cwd=str(PROJECT_ROOT),
+        for i in range(len(df)):
+            row = df.iloc[i]
+            produto_detran_clean = sanitize_filename(
+                str(row.get("titulo_do_produto_detran", ""))
+            )
+            produto_clean = re.sub(r"\s+", "_", str(row.get("produto", "")))
+            output_filename = (
+                f"{row['acao']}_{produto_clean}_{produto_detran_clean}"
+                f"_{datetime_stamp}.pdf"
             )
 
-            generated = PROJECT_ROOT / output_filename
-            target = output_dir / output_filename
-            if generated.exists():
-                generated.rename(target)
-                generated_files.append(target)
-        except subprocess.CalledProcessError as e:
-            print(f"Erro ao gerar {output_filename}: {e.stderr}")
+            try:
+                subprocess.run(
+                    [
+                        "quarto",
+                        "render",
+                        "main.qmd",
+                        "--output",
+                        output_filename,
+                        "--output-dir",
+                        str(output_dir),
+                        "--execute-param",
+                        f"row_index:{i + 1}",
+                        "--execute-param",
+                        f"csv_path:{csv_path}",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                    cwd=str(PROJECT_ROOT),
+                )
 
-        if on_progress:
-            on_progress(i + 1, len(df))
+                generated = output_dir / output_filename
+                if generated.exists():
+                    generated_files.append(generated)
+            except subprocess.CalledProcessError as e:
+                print(f"Erro ao gerar {output_filename}: {e.stderr}")
+
+            if on_progress:
+                on_progress(i + 1, len(df))
 
     return generated_files
 
