@@ -62,6 +62,7 @@ UNITE_MAP = {
     "indicador": "indicador",
     "ano_referencia": "ano_referencia",
     "valor_resultado": "valor_resultado",
+    "observacoes": "observacoes",
     "area_responsavel": "area_responsavel",
     "links_comprovatorios": "links_comprovatorios",
     "arquivos_comprovatorios": "arquivos_comprovatorios",

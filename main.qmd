@@ -113,14 +113,17 @@ row = df_input.iloc[row_idx]
 input_tipo = row["tipo_de_produto_a_ser_enviado"]
 input_pilar = row["pilar"]
 input_acao_id = row["acao"]
-input_acao_name = row["nome_acao"]
+input_acao_name = row["nome_acao"] if pd.notna(row.get("nome_acao")) else ""
+input_acao_label = f"{input_acao_id}: {input_acao_name}" if input_acao_name else str(input_acao_id)
 input_prod_id = row["produto"]
-input_prod_name = row["nome_produto"]
+input_prod_name = row["nome_produto"] if pd.notna(row.get("nome_produto")) else ""
+input_prod_label = f"{input_prod_id}: {input_prod_name}" if input_prod_name else str(input_prod_id)
 input_prod_detran_name = row["titulo_do_produto_detran"]
 input_justificativa = row["descricao_e_justificativa"]
 input_indicadores = row["indicador"]
 input_ano_ref = int(row["ano_referencia"])
 input_resultado = int(row["valor_resultado"])
+input_observacao = row["observacoes"] if pd.notna(row.get("observacoes")) else ""
 input_area = row["area_responsavel"]
 input_links = row["links_comprovatorios"]
 input_arq = row["arquivos_comprovatorios"]
@@ -161,11 +164,11 @@ if input_tipo == "Plano de Ação":
 
 ### AÇÃO
 
-**{input_acao_id}**: {input_acao_name}
+**{input_acao_label}**
 
 ### PRODUTO
 
-**{input_prod_id}**: {input_prod_name}
+**{input_prod_label}**
 
 **Título do Produto:** {input_prod_detran_name}
 
@@ -177,9 +180,9 @@ if input_tipo == "Plano de Ação":
 
 ### RESULTADOS / METAS
 
-| Ano de Referência | Valor do Resultado |
-| --- | --- |
-| {input_ano_ref} | {input_resultado} |
+| Ano de Referência | Valor do Resultado | Observação |
+| --- | --- | --- |
+| {input_ano_ref} | {input_resultado} | {input_observacao} |
 
 ### ÁREA RESPONSÁVEL PELA AÇÃO (Detran-SP)
 
@@ -201,7 +204,7 @@ if input_tipo == "Produto Novo":
 
 ### AÇÃO
 
-**{input_acao_id}**: {input_acao_name}
+**{input_acao_label}**
 
 ### {input_prod_id}
 
@@ -215,9 +218,9 @@ if input_tipo == "Produto Novo":
 
 ### RESULTADOS / METAS
 
-| Ano de Referência | Valor do Resultado |
-| --- | --- |
-| {input_ano_ref} | {input_resultado} |
+| Ano de Referência | Valor do Resultado | Observação |
+| --- | --- | --- |
+| {input_ano_ref} | {input_resultado} | {input_observacao} |
 
 ### ÁREA RESPONSÁVEL PELA AÇÃO (Detran-SP)
 
