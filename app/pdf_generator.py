@@ -79,3 +79,87 @@ def create_zip(pdf_paths: list[Path], zip_path: Path) -> Path:
         for pdf in pdf_paths:
             zf.write(pdf, pdf.name)
     return zip_path
+
+
+def generate_csvs_zip(df: pd.DataFrame, zip_path: Path) -> Path:
+    """Gera CSVs de produtos para o Painel PNATRANS e empacota em um zip."""
+
+    def extract_pilar_number(pilar: str) -> str:
+        match = re.search(r"\d+", str(pilar))
+        return match.group() if match else str(pilar)
+
+    def extract_produto_number(produto: str) -> str:
+        return str(produto).lstrip("P")
+
+    def format_ano(ano) -> str:
+        try:
+            return str(int(float(ano)))
+        except (ValueError, TypeError):
+            return str(ano)
+
+    def format_valor(valor) -> str:
+        try:
+            return str(int(float(valor)))
+        except (ValueError, TypeError):
+            return str(valor)
+
+    zip_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+
+        # Produtos do Plano de Ação
+        mask_plano = df["tipo_de_produto_a_ser_enviado"] == "Plano de Ação"
+        df_plano = df[mask_plano].copy()
+
+        if not df_plano.empty:
+            csv_plano = pd.DataFrame({
+                "esfera": "E",
+                "uf": "SP",
+                "municipio": "",
+                "regiao": "",
+                "pilar": df_plano["pilar"].apply(extract_pilar_number),
+                "produto": df_plano["produto"].apply(extract_produto_number),
+                "ano": df_plano["ano_referencia"].apply(format_ano),
+                "quantidade": df_plano["valor_resultado"].apply(format_valor),
+                "link": df_plano["links_comprovatorios"].fillna(""),
+            })
+        else:
+            csv_plano = pd.DataFrame(
+                columns=["esfera", "uf", "municipio", "regiao", "pilar",
+                         "produto", "ano", "quantidade", "link"]
+            )
+
+        plano_path = tmpdir_path / "produtos.csv"
+        csv_plano.to_csv(plano_path, sep=";", header=False, index=False)
+
+        # Produtos Novos
+        mask_novo = df["tipo_de_produto_a_ser_enviado"] == "Produto Novo"
+        df_novo = df[mask_novo].copy()
+
+        if not df_novo.empty:
+            csv_novo = pd.DataFrame({
+                "pilar": df_novo["pilar"].apply(extract_pilar_number),
+                "produto": df_novo["titulo_do_produto_detran"].fillna(""),
+                "esfera": "E",
+                "regiao": "",
+                "uf": "SP",
+                "municipio": "",
+                "ano": df_novo["ano_referencia"].apply(format_ano),
+                "quantidade": df_novo["valor_resultado"].apply(format_valor),
+                "link": df_novo["links_comprovatorios"].fillna(""),
+            })
+        else:
+            csv_novo = pd.DataFrame(
+                columns=["pilar", "produto", "esfera", "regiao", "uf",
+                         "municipio", "ano", "quantidade", "link"]
+            )
+
+        novo_path = tmpdir_path / "produtos_novos.csv"
+        csv_novo.to_csv(novo_path, sep=";", header=False, index=False)
+
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.write(plano_path, "produtos.csv")
+            zf.write(novo_path, "produtos_novos.csv")
+
+    return zip_path

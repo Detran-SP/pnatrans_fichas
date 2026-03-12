@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 from shiny import App, Inputs, Outputs, Session, reactive, render, ui
 
-from app.pdf_generator import PROJECT_ROOT, create_zip, generate_pdfs
+from app.pdf_generator import PROJECT_ROOT, create_zip, generate_csvs_zip, generate_pdfs
 from app.processing import process_input
 
 DICT_PATH = PROJECT_ROOT / "data" / "arquivos_pnatrans.xlsx"
@@ -114,13 +114,23 @@ def server(input: Inputs, output: Outputs, session: Session):
                 class_="text-muted",
             )
 
-        return ui.download_button(
-            "download_zip",
-            ui.tags.span(
-                ui.tags.i("download", class_="material-icons", style="font-size:18px; vertical-align:middle; margin-right:6px;"),
-                "Exportar PDFs (.zip)",
+        return ui.div(
+            ui.download_button(
+                "download_zip",
+                ui.tags.span(
+                    ui.tags.i("download", class_="material-icons", style="font-size:18px; vertical-align:middle; margin-right:6px;"),
+                    "Exportar PDFs (.zip)",
+                ),
+                class_="btn-primary w-100",
             ),
-            class_="btn-primary w-100",
+            ui.download_button(
+                "download_csvs",
+                ui.tags.span(
+                    ui.tags.i("table_view", class_="material-icons", style="font-size:18px; vertical-align:middle; margin-right:6px;"),
+                    "Exportar CSVs (.zip)",
+                ),
+                class_="btn-outline-primary w-100 mt-2",
+            ),
         )
 
     @render.download(filename="fichas_pnatrans.zip")
@@ -168,6 +178,19 @@ def server(input: Inputs, output: Outputs, session: Session):
                 duration=5,
                 type="message",
             )
+
+            with open(zip_path, "rb") as f:
+                yield f.read()
+
+    @render.download(filename="produtos_pnatrans.zip")
+    async def download_csvs():
+        df = processed_data()
+        if df is None:
+            return
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            zip_path = Path(tmpdir) / "produtos_pnatrans.zip"
+            generate_csvs_zip(df, zip_path)
 
             with open(zip_path, "rb") as f:
                 yield f.read()
