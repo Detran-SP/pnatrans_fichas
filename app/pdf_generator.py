@@ -41,14 +41,9 @@ def generate_documents(
 
         for i in range(len(df)):
             row = df.iloc[i]
-            produto_detran_clean = sanitize_filename(
-                str(row.get("titulo_do_produto_detran", ""))
-            )
-            produto_clean = re.sub(r"\s+", "_", str(row.get("produto", "")))
-            output_filename = (
-                f"{row['acao']}_{produto_clean}_{produto_detran_clean}"
-                f"_{datetime_stamp}.pdf"
-            )
+            produto = str(row.get("produto", "")).strip()
+            id_remessa = sanitize_filename(str(row.get("id_remessa", datetime_stamp)))
+            output_filename = f"{produto}-{id_remessa}.pdf"
 
             try:
                 subprocess.run(
@@ -151,9 +146,6 @@ def generate_csvs_zip(df: pd.DataFrame, zip_path: Path) -> Path:
                 ]
             )
 
-        plano_path = tmpdir_path / "produtos.csv"
-        csv_plano.to_csv(plano_path, sep=";", header=False, index=False)
-
         # Produtos Novos
         mask_novo = df["tipo_de_produto_a_ser_enviado"] == "Produto Novo"
         df_novo = df[mask_novo].copy()
@@ -187,11 +179,24 @@ def generate_csvs_zip(df: pd.DataFrame, zip_path: Path) -> Path:
                 ]
             )
 
-        novo_path = tmpdir_path / "produtos_novos.csv"
-        csv_novo.to_csv(novo_path, sep=";", header=False, index=False)
+        CSV_ROW_LIMIT = 30
+
+        def write_csv_chunks(zf: zipfile.ZipFile, df_csv: pd.DataFrame, base_name: str) -> None:
+            if len(df_csv) <= CSV_ROW_LIMIT:
+                chunk_path = tmpdir_path / base_name
+                df_csv.to_csv(chunk_path, sep=";", header=False, index=False)
+                zf.write(chunk_path, base_name)
+            else:
+                stem = base_name.removesuffix(".csv")
+                for part, start in enumerate(range(0, len(df_csv), CSV_ROW_LIMIT), start=1):
+                    chunk = df_csv.iloc[start : start + CSV_ROW_LIMIT]
+                    chunk_name = f"{stem}_{part}.csv"
+                    chunk_path = tmpdir_path / chunk_name
+                    chunk.to_csv(chunk_path, sep=";", header=False, index=False)
+                    zf.write(chunk_path, chunk_name)
 
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-            zf.write(plano_path, "produtos.csv")
-            zf.write(novo_path, "produtos_novos.csv")
+            write_csv_chunks(zf, csv_plano, "produtos.csv")
+            write_csv_chunks(zf, csv_novo, "produtos_novos.csv")
 
     return zip_path
