@@ -11,6 +11,7 @@ from app.pdf_generator import (
     generate_csvs_zip,
     generate_documents,
 )
+from app.__version__ import __release_date__, __version__
 from app.processing import process_input
 
 DICT_PATH = PROJECT_ROOT / "data" / "arquivos_pnatrans.xlsx"
@@ -55,6 +56,13 @@ app_ui = ui.page_sidebar(
         ),
         ui.hr(),
         ui.output_ui("download_section"),
+        ui.div(
+            ui.tags.small(
+                f"v{__version__} · {__release_date__}",
+                class_="text-muted",
+            ),
+            style="position:absolute; bottom:12px; left:0; width:100%; text-align:center;",
+        ),
         width="320px",
     ),
     ui.card(
