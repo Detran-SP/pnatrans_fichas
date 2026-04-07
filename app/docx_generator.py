@@ -282,14 +282,9 @@ def generate_docx_documents(
 
     for i in range(len(df)):
         row = df.iloc[i]
-        produto_detran_clean = sanitize_filename(
-            str(row.get("titulo_do_produto_detran", ""))
-        )
-        produto_clean = re.sub(r"\s+", "_", str(row.get("produto", "")))
-        output_filename = (
-            f"{row['acao']}_{produto_clean}_{produto_detran_clean}"
-            f"_{datetime_stamp}.docx"
-        )
+        produto = str(row.get("produto", "")).strip()
+        id_remessa = sanitize_filename(str(row.get("id_remessa", datetime_stamp)))
+        output_filename = f"{produto}-{id_remessa}.docx"
         output_path = output_dir / output_filename
 
         doc = _build_document(row, logo_path)
