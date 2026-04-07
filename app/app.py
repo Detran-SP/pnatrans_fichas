@@ -124,17 +124,49 @@ def server(input: Inputs, output: Outputs, session: Session):
         if df is None:
             return pd.DataFrame()
         display_cols = [c for c in PREVIEW_COLS if c in df.columns]
-        return render.DataGrid(df[display_cols], width="100%", height="100%")
+        return render.DataGrid(
+            df[display_cols],
+            width="100%",
+            height="100%",
+            selection_mode="rows",
+        )
+
+    @reactive.calc
+    def export_data() -> pd.DataFrame | None:
+        """DataFrame a ser exportado: subset selecionado ou todas as linhas."""
+        df = processed_data()
+        if df is None:
+            return None
+        selection = preview_table.cell_selection()
+        if selection is not None:
+            rows = list(selection.get("rows", ()))
+            if rows:
+                return df.iloc[rows].reset_index(drop=True)
+        return df
 
     @render.ui
     def download_section():
-        if processed_data() is None:
+        df = processed_data()
+        if df is None:
             return ui.p(
                 "Envie a planilha para habilitar a exportação.",
                 class_="text-muted",
             )
 
+        export_df = export_data()
+        n_export = 0 if export_df is None else len(export_df)
+        n_total = len(df)
+        if n_export == n_total:
+            selection_label = f"Exportando todas as {n_total} fichas"
+        else:
+            selection_label = f"Exportando {n_export} de {n_total} fichas selecionadas"
+
         return ui.div(
+            ui.p(
+                selection_label,
+                class_="text-muted small",
+                style="margin-bottom:8px;",
+            ),
             ui.download_button(
                 "download_pdfs",
                 ui.tags.span(
@@ -174,8 +206,8 @@ def server(input: Inputs, output: Outputs, session: Session):
         )
 
     async def _generate_and_zip(fmt: str, zip_name: str):
-        df = processed_data()
-        if df is None:
+        df = export_data()
+        if df is None or df.empty:
             return
 
         n = len(df)
@@ -234,8 +266,8 @@ def server(input: Inputs, output: Outputs, session: Session):
 
     @render.download(filename="produtos_pnatrans.zip")
     async def download_csvs():
-        df = processed_data()
-        if df is None:
+        df = export_data()
+        if df is None or df.empty:
             return
 
         with tempfile.TemporaryDirectory() as tmpdir:
