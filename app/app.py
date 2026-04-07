@@ -5,7 +5,12 @@ from pathlib import Path
 import pandas as pd
 from shiny import App, Inputs, Outputs, Session, reactive, render, ui
 
-from app.pdf_generator import PROJECT_ROOT, create_zip, generate_csvs_zip, generate_pdfs
+from app.pdf_generator import (
+    PROJECT_ROOT,
+    create_zip,
+    generate_csvs_zip,
+    generate_documents,
+)
 from app.processing import process_input
 
 DICT_PATH = PROJECT_ROOT / "data" / "arquivos_pnatrans.xlsx"
@@ -35,7 +40,11 @@ app_ui = ui.page_sidebar(
         ui.p("Gerador de Fichas", class_="text-muted"),
         ui.hr(),
         ui.tags.label(
-            ui.tags.i("upload_file", class_="material-icons", style="font-size:18px; vertical-align:middle;"),
+            ui.tags.i(
+                "upload_file",
+                class_="material-icons",
+                style="font-size:18px; vertical-align:middle;",
+            ),
             " Planilha de mapeamento",
             style="font-weight:600; margin-bottom:8px; display:block;",
         ),
@@ -50,7 +59,11 @@ app_ui = ui.page_sidebar(
     ),
     ui.card(
         ui.card_header(
-            ui.tags.i("table_chart", class_="material-icons", style="font-size:18px; vertical-align:middle; margin-right:6px;"),
+            ui.tags.i(
+                "table_chart",
+                class_="material-icons",
+                style="font-size:18px; vertical-align:middle; margin-right:6px;",
+            ),
             "Dados Processados",
         ),
         ui.output_ui("table_or_placeholder"),
@@ -92,8 +105,15 @@ def server(input: Inputs, output: Outputs, session: Session):
         df = processed_data()
         if df is None:
             return ui.div(
-                ui.tags.i("description", class_="material-icons", style="font-size:48px; color:#adb5bd;"),
-                ui.p("Envie a planilha para visualizar os dados.", class_="text-muted mt-2"),
+                ui.tags.i(
+                    "description",
+                    class_="material-icons",
+                    style="font-size:48px; color:#adb5bd;",
+                ),
+                ui.p(
+                    "Envie a planilha para visualizar os dados.",
+                    class_="text-muted mt-2",
+                ),
                 style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; padding:60px 0;",
             )
         return ui.output_data_frame("preview_table")
@@ -116,25 +136,44 @@ def server(input: Inputs, output: Outputs, session: Session):
 
         return ui.div(
             ui.download_button(
-                "download_zip",
+                "download_pdfs",
                 ui.tags.span(
-                    ui.tags.i("download", class_="material-icons", style="font-size:18px; vertical-align:middle; margin-right:6px;"),
+                    ui.tags.i(
+                        "download",
+                        class_="material-icons",
+                        style="font-size:18px; vertical-align:middle; margin-right:6px;",
+                    ),
                     "Exportar PDFs (.zip)",
                 ),
                 class_="btn-primary w-100",
             ),
             ui.download_button(
+                "download_docxs",
+                ui.tags.span(
+                    ui.tags.i(
+                        "description",
+                        class_="material-icons",
+                        style="font-size:18px; vertical-align:middle; margin-right:6px;",
+                    ),
+                    "Exportar DOCX (.zip)",
+                ),
+                class_="btn-primary w-100 mt-2",
+            ),
+            ui.download_button(
                 "download_csvs",
                 ui.tags.span(
-                    ui.tags.i("table_view", class_="material-icons", style="font-size:18px; vertical-align:middle; margin-right:6px;"),
+                    ui.tags.i(
+                        "table_view",
+                        class_="material-icons",
+                        style="font-size:18px; vertical-align:middle; margin-right:6px;",
+                    ),
                     "Exportar CSVs (.zip)",
                 ),
                 class_="btn-outline-primary w-100 mt-2",
             ),
         )
 
-    @render.download(filename="fichas_pnatrans.zip")
-    async def download_zip():
+    async def _generate_and_zip(fmt: str, zip_name: str):
         df = processed_data()
         if df is None:
             return
@@ -150,7 +189,7 @@ def server(input: Inputs, output: Outputs, session: Session):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
-            pdf_dir = tmpdir_path / "pdfs"
+            docs_dir = tmpdir_path / "docs"
 
             loop = asyncio.get_running_loop()
 
@@ -163,24 +202,35 @@ def server(input: Inputs, output: Outputs, session: Session):
                         close_button=False,
                         type="message",
                     )
+
                 asyncio.run_coroutine_threadsafe(_notify(), loop)
 
-            pdf_files = await asyncio.to_thread(
-                generate_pdfs, df, pdf_dir, on_progress
+            doc_files = await asyncio.to_thread(
+                generate_documents, df, docs_dir, fmt, on_progress
             )
 
-            zip_path = tmpdir_path / "fichas_pnatrans.zip"
-            create_zip(pdf_files, zip_path)
+            zip_path = tmpdir_path / zip_name
+            create_zip(doc_files, zip_path)
 
             ui.notification_remove(NOTIFICATION_ID)
             ui.notification_show(
-                f"{len(pdf_files)} fichas geradas com sucesso!",
+                f"{len(doc_files)} fichas geradas com sucesso!",
                 duration=5,
                 type="message",
             )
 
             with open(zip_path, "rb") as f:
                 yield f.read()
+
+    @render.download(filename="fichas_pnatrans_pdf.zip")
+    async def download_pdfs():
+        async for chunk in _generate_and_zip("pdf", "fichas_pnatrans_pdf.zip"):
+            yield chunk
+
+    @render.download(filename="fichas_pnatrans_docx.zip")
+    async def download_docxs():
+        async for chunk in _generate_and_zip("docx", "fichas_pnatrans_docx.zip"):
+            yield chunk
 
     @render.download(filename="produtos_pnatrans.zip")
     async def download_csvs():
