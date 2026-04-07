@@ -10,17 +10,27 @@ from pathlib import Path
 
 import pandas as pd
 
+from app.docx_generator import generate_docx_documents
 from app.processing import sanitize_filename
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
-def generate_pdfs(
+def generate_documents(
     df: pd.DataFrame,
     output_dir: Path,
+    fmt: str = "pdf",
     on_progress: Callable | None = None,
 ) -> list[Path]:
-    """Gera PDFs para cada linha do DataFrame e retorna lista de caminhos."""
+    """Gera documentos para cada linha do DataFrame e retorna lista de caminhos.
+
+    `fmt` aceita "pdf" (renderizado via Quarto/Typst) ou "docx" (via python-docx).
+    """
+    if fmt == "docx":
+        return generate_docx_documents(df, output_dir, on_progress=on_progress)
+    if fmt != "pdf":
+        raise ValueError(f"Formato não suportado: {fmt!r}. Use 'pdf' ou 'docx'.")
+
     output_dir.mkdir(parents=True, exist_ok=True)
     datetime_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     generated_files: list[Path] = []
@@ -73,11 +83,11 @@ def generate_pdfs(
     return generated_files
 
 
-def create_zip(pdf_paths: list[Path], zip_path: Path) -> Path:
-    """Empacota os PDFs em um arquivo .zip."""
+def create_zip(file_paths: list[Path], zip_path: Path) -> Path:
+    """Empacota os arquivos em um .zip."""
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for pdf in pdf_paths:
-            zf.write(pdf, pdf.name)
+        for file in file_paths:
+            zf.write(file, file.name)
     return zip_path
 
 
@@ -113,21 +123,32 @@ def generate_csvs_zip(df: pd.DataFrame, zip_path: Path) -> Path:
         df_plano = df[mask_plano].copy()
 
         if not df_plano.empty:
-            csv_plano = pd.DataFrame({
-                "esfera": "E",
-                "uf": "SP",
-                "municipio": "",
-                "regiao": "",
-                "pilar": df_plano["pilar"].apply(extract_pilar_number),
-                "produto": df_plano["produto"].apply(extract_produto_number),
-                "ano": df_plano["ano_referencia"].apply(format_ano),
-                "quantidade": df_plano["valor_resultado"].apply(format_valor),
-                "link": df_plano["links_comprovatorios"].fillna(""),
-            })
+            csv_plano = pd.DataFrame(
+                {
+                    "esfera": "E",
+                    "uf": "SP",
+                    "municipio": "",
+                    "regiao": "",
+                    "pilar": df_plano["pilar"].apply(extract_pilar_number),
+                    "produto": df_plano["produto"].apply(extract_produto_number),
+                    "ano": df_plano["ano_referencia"].apply(format_ano),
+                    "quantidade": df_plano["valor_resultado"].apply(format_valor),
+                    "link": df_plano["link_drive"].fillna("").astype(str).str.strip(),
+                }
+            )
         else:
             csv_plano = pd.DataFrame(
-                columns=["esfera", "uf", "municipio", "regiao", "pilar",
-                         "produto", "ano", "quantidade", "link"]
+                columns=[
+                    "esfera",
+                    "uf",
+                    "municipio",
+                    "regiao",
+                    "pilar",
+                    "produto",
+                    "ano",
+                    "quantidade",
+                    "link",
+                ]
             )
 
         plano_path = tmpdir_path / "produtos.csv"
@@ -138,21 +159,32 @@ def generate_csvs_zip(df: pd.DataFrame, zip_path: Path) -> Path:
         df_novo = df[mask_novo].copy()
 
         if not df_novo.empty:
-            csv_novo = pd.DataFrame({
-                "pilar": df_novo["pilar"].apply(extract_pilar_number),
-                "produto": df_novo["titulo_do_produto_detran"].fillna(""),
-                "esfera": "E",
-                "regiao": "",
-                "uf": "SP",
-                "municipio": "",
-                "ano": df_novo["ano_referencia"].apply(format_ano),
-                "quantidade": df_novo["valor_resultado"].apply(format_valor),
-                "link": df_novo["links_comprovatorios"].fillna(""),
-            })
+            csv_novo = pd.DataFrame(
+                {
+                    "pilar": df_novo["pilar"].apply(extract_pilar_number),
+                    "produto": df_novo["titulo_do_produto_detran"].fillna(""),
+                    "esfera": "E",
+                    "regiao": "",
+                    "uf": "SP",
+                    "municipio": "",
+                    "ano": df_novo["ano_referencia"].apply(format_ano),
+                    "quantidade": df_novo["valor_resultado"].apply(format_valor),
+                    "link": df_novo["link_drive"].fillna("").astype(str).str.strip(),
+                }
+            )
         else:
             csv_novo = pd.DataFrame(
-                columns=["pilar", "produto", "esfera", "regiao", "uf",
-                         "municipio", "ano", "quantidade", "link"]
+                columns=[
+                    "pilar",
+                    "produto",
+                    "esfera",
+                    "regiao",
+                    "uf",
+                    "municipio",
+                    "ano",
+                    "quantidade",
+                    "link",
+                ]
             )
 
         novo_path = tmpdir_path / "produtos_novos.csv"
