@@ -82,9 +82,11 @@ def process_input(input_file_path: Path, dict_file_path: Path) -> pd.DataFrame:
         "descricao_e_justificativa"
     ].apply(clean_text)
 
-    df_input["links_comprovatorios"] = df_input["links_comprovatorios"].str.replace(
-        "\r\n", "", regex=False
-    )
+    # Remove quebras de linha embutidas (CR/LF) que aparecem dentro de URLs
+    # quando o Excel/Forms quebra linhas longas. Sem isso, o CSV exportado fica
+    # com quebras dentro das células.
+    for col in ("links_comprovatorios", "arquivos_comprovatorios"):
+        df_input[col] = df_input[col].str.replace(r"[\r\n]+", "", regex=True)
 
     # Joins com o dicionário
     dic_acao = df_dic[["codigo_acao", "nome_acao"]].drop_duplicates()
