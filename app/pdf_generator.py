@@ -113,16 +113,6 @@ def generate_csvs_zip(df: pd.DataFrame, zip_path: Path) -> Path:
         except (ValueError, TypeError):
             return str(valor)
 
-    def link_with_fallback(row) -> str:
-        """Usa links_comprovatorios; se vazio, faz fallback para arquivos_comprovatorios."""
-        link = row.get("links_comprovatorios")
-        if pd.notna(link) and str(link).strip():
-            return str(link).strip()
-        arq = row.get("arquivos_comprovatorios")
-        if pd.notna(arq) and str(arq).strip():
-            return str(arq).strip()
-        return ""
-
     zip_path.parent.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -143,7 +133,7 @@ def generate_csvs_zip(df: pd.DataFrame, zip_path: Path) -> Path:
                     "produto": df_plano["produto"].apply(extract_produto_number),
                     "ano": df_plano["ano_referencia"].apply(format_ano),
                     "quantidade": df_plano["valor_resultado"].apply(format_valor),
-                    "link": df_plano.apply(link_with_fallback, axis=1),
+                    "link": df_plano["link_drive"].fillna("").astype(str).str.strip(),
                 }
             )
         else:
@@ -179,7 +169,7 @@ def generate_csvs_zip(df: pd.DataFrame, zip_path: Path) -> Path:
                     "municipio": "",
                     "ano": df_novo["ano_referencia"].apply(format_ano),
                     "quantidade": df_novo["valor_resultado"].apply(format_valor),
-                    "link": df_novo.apply(link_with_fallback, axis=1),
+                    "link": df_novo["link_drive"].fillna("").astype(str).str.strip(),
                 }
             )
         else:
