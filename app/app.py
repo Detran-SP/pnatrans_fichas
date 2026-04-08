@@ -100,6 +100,15 @@ app_ui = ui.page_sidebar(
 
 
 def server(input: Inputs, output: Outputs, session: Session):
+    # Diretório temporário com vida útil da sessão — armazena zips gerados
+    _tmpdir = tempfile.TemporaryDirectory()
+    _tmpdir_path = Path(_tmpdir.name)
+    session.on_ended(lambda: _tmpdir.cleanup())
+
+    _generating: reactive.Value[str | None] = reactive.Value(None)
+    _pdf_zip: reactive.Value[Path | None] = reactive.Value(None)
+    _docx_zip: reactive.Value[Path | None] = reactive.Value(None)
+
     @reactive.calc
     def processed_data() -> pd.DataFrame | None:
         file_info: list[dict] | None = input.file_upload()
@@ -107,6 +116,13 @@ def server(input: Inputs, output: Outputs, session: Session):
             return None
         uploaded_path = Path(file_info[0]["datapath"])
         return process_input(uploaded_path, DICT_PATH)
+
+    # Reseta zips gerados quando uma nova planilha é carregada
+    @reactive.effect
+    def _reset_on_upload():
+        processed_data()
+        _pdf_zip.set(None)
+        _docx_zip.set(None)
 
     @render.ui
     def table_or_placeholder():
@@ -169,36 +185,78 @@ def server(input: Inputs, output: Outputs, session: Session):
         else:
             selection_label = f"Exportando {n_export} de {n_total} fichas selecionadas"
 
+        generating = _generating()
+        pdf_ready = _pdf_zip() is not None
+        docx_ready = _docx_zip() is not None
+
+        pdf_btn_label = "Gerando PDFs..." if generating == "pdf" else "Gerar PDFs (.zip)"
+        docx_btn_label = "Gerando DOCXs..." if generating == "docx" else "Gerar DOCXs (.zip)"
+
         return ui.div(
             ui.p(
                 selection_label,
                 class_="text-muted small",
                 style="margin-bottom:8px;",
             ),
-            ui.download_button(
-                "download_pdfs",
+            # PDF
+            ui.input_action_button(
+                "generate_pdfs",
                 ui.tags.span(
                     ui.tags.i(
-                        "download",
+                        "picture_as_pdf",
                         class_="material-icons",
                         style="font-size:18px; vertical-align:middle; margin-right:6px;",
                     ),
-                    "Exportar PDFs (.zip)",
+                    pdf_btn_label,
                 ),
                 class_="btn-primary w-100",
+                disabled=generating is not None,
             ),
-            ui.download_button(
-                "download_docxs",
+            ui.div(
+                ui.download_button(
+                    "download_pdfs",
+                    ui.tags.span(
+                        ui.tags.i(
+                            "download",
+                            class_="material-icons",
+                            style="font-size:18px; vertical-align:middle; margin-right:6px;",
+                        ),
+                        "Baixar PDFs (.zip)",
+                    ),
+                    class_="btn-success w-100 mt-1",
+                ),
+                style="" if pdf_ready else "display:none;",
+            ),
+            # DOCX
+            ui.input_action_button(
+                "generate_docxs",
                 ui.tags.span(
                     ui.tags.i(
                         "description",
                         class_="material-icons",
                         style="font-size:18px; vertical-align:middle; margin-right:6px;",
                     ),
-                    "Exportar DOCX (.zip)",
+                    docx_btn_label,
                 ),
                 class_="btn-primary w-100 mt-2",
+                disabled=generating is not None,
             ),
+            ui.div(
+                ui.download_button(
+                    "download_docxs",
+                    ui.tags.span(
+                        ui.tags.i(
+                            "download",
+                            class_="material-icons",
+                            style="font-size:18px; vertical-align:middle; margin-right:6px;",
+                        ),
+                        "Baixar DOCXs (.zip)",
+                    ),
+                    class_="btn-success w-100 mt-1",
+                ),
+                style="" if docx_ready else "display:none;",
+            ),
+            # CSVs (geração rápida — mantém download direto)
             ui.download_button(
                 "download_csvs",
                 ui.tags.span(
@@ -213,10 +271,13 @@ def server(input: Inputs, output: Outputs, session: Session):
             ),
         )
 
-    async def _generate_and_zip(fmt: str, zip_name: str):
+    async def _run_generation(fmt: str, zip_filename: str, zip_value: reactive.Value):
         df = export_data()
         if df is None or df.empty:
             return
+
+        _generating.set(fmt)
+        zip_value.set(None)
 
         n = len(df)
         ui.notification_show(
@@ -227,50 +288,63 @@ def server(input: Inputs, output: Outputs, session: Session):
             type="message",
         )
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir_path = Path(tmpdir)
-            docs_dir = tmpdir_path / "docs"
+        docs_dir = _tmpdir_path / f"docs_{fmt}"
+        docs_dir.mkdir(exist_ok=True)
+        loop = asyncio.get_running_loop()
 
-            loop = asyncio.get_running_loop()
+        def on_progress(current, total):
+            async def _notify():
+                ui.notification_show(
+                    f"Gerando fichas... {current}/{total}",
+                    id=NOTIFICATION_ID,
+                    duration=None,
+                    close_button=False,
+                    type="message",
+                )
+            asyncio.run_coroutine_threadsafe(_notify(), loop)
 
-            def on_progress(current, total):
-                async def _notify():
-                    ui.notification_show(
-                        f"Gerando fichas... {current}/{total}",
-                        id=NOTIFICATION_ID,
-                        duration=None,
-                        close_button=False,
-                        type="message",
-                    )
+        doc_files = await asyncio.to_thread(
+            generate_documents, df, docs_dir, fmt, on_progress
+        )
 
-                asyncio.run_coroutine_threadsafe(_notify(), loop)
+        zip_path = _tmpdir_path / zip_filename
+        create_zip(doc_files, zip_path)
 
-            doc_files = await asyncio.to_thread(
-                generate_documents, df, docs_dir, fmt, on_progress
-            )
+        _generating.set(None)
+        zip_value.set(zip_path)
 
-            zip_path = tmpdir_path / zip_name
-            create_zip(doc_files, zip_path)
+        ui.notification_remove(NOTIFICATION_ID)
+        ui.notification_show(
+            f"{len(doc_files)} fichas geradas com sucesso!",
+            duration=5,
+            type="message",
+        )
 
-            ui.notification_remove(NOTIFICATION_ID)
-            ui.notification_show(
-                f"{len(doc_files)} fichas geradas com sucesso!",
-                duration=5,
-                type="message",
-            )
+    @reactive.effect
+    @reactive.event(input.generate_pdfs)
+    async def _do_generate_pdfs():
+        await _run_generation("pdf", "fichas_pnatrans_pdf.zip", _pdf_zip)
 
-            with open(zip_path, "rb") as f:
-                yield f.read()
+    @reactive.effect
+    @reactive.event(input.generate_docxs)
+    async def _do_generate_docxs():
+        await _run_generation("docx", "fichas_pnatrans_docx.zip", _docx_zip)
 
     @render.download(filename="fichas_pnatrans_pdf.zip")
     async def download_pdfs():
-        async for chunk in _generate_and_zip("pdf", "fichas_pnatrans_pdf.zip"):
-            yield chunk
+        path = _pdf_zip()
+        if path is None or not path.exists():
+            return
+        with open(path, "rb") as f:
+            yield f.read()
 
     @render.download(filename="fichas_pnatrans_docx.zip")
     async def download_docxs():
-        async for chunk in _generate_and_zip("docx", "fichas_pnatrans_docx.zip"):
-            yield chunk
+        path = _docx_zip()
+        if path is None or not path.exists():
+            return
+        with open(path, "rb") as f:
+            yield f.read()
 
     @render.download(filename="produtos_pnatrans.zip")
     async def download_csvs():
@@ -278,12 +352,11 @@ def server(input: Inputs, output: Outputs, session: Session):
         if df is None or df.empty:
             return
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            zip_path = Path(tmpdir) / "produtos_pnatrans.zip"
-            generate_csvs_zip(df, zip_path)
+        zip_path = _tmpdir_path / "produtos_pnatrans.zip"
+        generate_csvs_zip(df, zip_path)
 
-            with open(zip_path, "rb") as f:
-                yield f.read()
+        with open(zip_path, "rb") as f:
+            yield f.read()
 
 
 app = App(app_ui, server)
