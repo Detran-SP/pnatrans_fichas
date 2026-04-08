@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import shutil
 import subprocess
 import tempfile
 import zipfile
@@ -36,8 +37,16 @@ def generate_documents(
     generated_files: list[Path] = []
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        csv_path = Path(tmpdir) / "processed_data.csv"
+        tmpdir_path = Path(tmpdir)
+        csv_path = tmpdir_path / "processed_data.csv"
         df.to_csv(csv_path, index=False)
+
+        # Copia main.qmd e logo.png para o dir temporário para isolar cada
+        # render — evita conflito no main.quarto_ipynb em sessões concorrentes.
+        shutil.copy(PROJECT_ROOT / "main.qmd", tmpdir_path / "main.qmd")
+        logo_src = PROJECT_ROOT / "logo.png"
+        if logo_src.exists():
+            shutil.copy(logo_src, tmpdir_path / "logo.png")
 
         for i in range(len(df)):
             row = df.iloc[i]
@@ -63,7 +72,7 @@ def generate_documents(
                     capture_output=True,
                     text=True,
                     check=True,
-                    cwd=str(PROJECT_ROOT),
+                    cwd=str(tmpdir_path),
                 )
 
                 generated = output_dir / output_filename
