@@ -20,7 +20,7 @@ def clean_names(df: pd.DataFrame) -> pd.DataFrame:
     return df.rename(columns=to_snake)
 
 
-def unite_columns(df: pd.DataFrame, prefix: str, new_name: str) -> pd.DataFrame:
+def unite_columns(df: pd.DataFrame, prefix: str, new_name: str, sep: str = "_") -> pd.DataFrame:
     """Concatena colunas que começam com o prefixo, removendo NAs (equivalente ao tidyr::unite)."""
     cols = [c for c in df.columns if c.startswith(prefix)]
     if not cols:
@@ -28,7 +28,7 @@ def unite_columns(df: pd.DataFrame, prefix: str, new_name: str) -> pd.DataFrame:
 
     def concat_row(row):
         values = [str(v) for v in row if pd.notna(v) and str(v).strip() != ""]
-        return "_".join(values) if values else ""
+        return sep.join(values) if values else ""
 
     df[new_name] = df[cols].apply(concat_row, axis=1)
     df = df.drop(columns=[c for c in cols if c != new_name])
@@ -75,8 +75,10 @@ def process_input(input_file_path: Path, dict_file_path: Path) -> pd.DataFrame:
     df_input = pd.read_excel(input_file_path)
     df_input = clean_names(df_input)
 
+    link_columns = {"links_comprovatorios", "arquivos_comprovatorios"}
     for prefix, new_name in UNITE_MAP.items():
-        df_input = unite_columns(df_input, prefix, new_name)
+        sep = "; " if prefix in link_columns else "_"
+        df_input = unite_columns(df_input, prefix, new_name, sep=sep)
 
     df_input["descricao_e_justificativa"] = df_input[
         "descricao_e_justificativa"
