@@ -166,6 +166,7 @@ def _add_results_table(doc: Document, ano_ref, resultado, observacao) -> None:
     for i, header in enumerate(headers):
         cell = table.rows[0].cells[i]
         cell.text = ""
+        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = cell.paragraphs[0].add_run(header)
         _style_run(run, bold=True)
         _set_cell_shading(cell, COLOR_TABLE_HEAD)
@@ -173,6 +174,7 @@ def _add_results_table(doc: Document, ano_ref, resultado, observacao) -> None:
     for i, value in enumerate(values):
         cell = table.rows[1].cells[i]
         cell.text = ""
+        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = cell.paragraphs[0].add_run(value)
         _style_run(run)
 
