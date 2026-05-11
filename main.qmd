@@ -183,7 +183,7 @@ if input_tipo == "Plano de Ação":
 ### RESULTADOS / METAS
 
 | Ano de Referência | Valor do Resultado | Observação |
-| --- | --- | --- |
+| :---: | :---: | :---: |
 | {input_ano_ref} | {input_resultado} | {input_observacao} |
 
 ### ÁREA RESPONSÁVEL PELA AÇÃO (Detran-SP)
@@ -221,7 +221,7 @@ if input_tipo == "Produto Novo":
 ### RESULTADOS / METAS
 
 | Ano de Referência | Valor do Resultado | Observação |
-| --- | --- | --- |
+| :---: | :---: | :---: |
 | {input_ano_ref} | {input_resultado} | {input_observacao} |
 
 ### ÁREA RESPONSÁVEL PELA AÇÃO (Detran-SP)
