@@ -8,6 +8,7 @@ from urllib.parse import unquote
 
 import pandas as pd
 from docx import Document
+from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.oxml import OxmlElement
@@ -162,10 +163,12 @@ def _add_results_table(doc: Document, ano_ref, resultado, observacao) -> None:
 
     table = doc.add_table(rows=2, cols=3)
     table.autofit = True
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
 
     for i, header in enumerate(headers):
         cell = table.rows[0].cells[i]
         cell.text = ""
+        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = cell.paragraphs[0].add_run(header)
         _style_run(run, bold=True)
         _set_cell_shading(cell, COLOR_TABLE_HEAD)
@@ -173,6 +176,7 @@ def _add_results_table(doc: Document, ano_ref, resultado, observacao) -> None:
     for i, value in enumerate(values):
         cell = table.rows[1].cells[i]
         cell.text = ""
+        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = cell.paragraphs[0].add_run(value)
         _style_run(run)
 

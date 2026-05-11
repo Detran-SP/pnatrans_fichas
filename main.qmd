@@ -58,15 +58,17 @@ format:
           )
         )
 
-        // Table styling - full width, no borders
+        // Table styling - full width, no borders, centered content
         #set table(
+          columns: (1fr, 1fr, 1fr),
           stroke: none,
           fill: (col, row) => if row == 0 {
             rgb("#A4CFED")
           } else {
             none
           },
-          inset: 8pt
+          inset: 8pt,
+          align: center + horizon
         )
 
         #show table: set block(width: 100%)
@@ -181,7 +183,7 @@ if input_tipo == "Plano de Ação":
 ### RESULTADOS / METAS
 
 | Ano de Referência | Valor do Resultado | Observação |
-| --- | --- | --- |
+| :---: | :---: | :---: |
 | {input_ano_ref} | {input_resultado} | {input_observacao} |
 
 ### ÁREA RESPONSÁVEL PELA AÇÃO (Detran-SP)
@@ -219,7 +221,7 @@ if input_tipo == "Produto Novo":
 ### RESULTADOS / METAS
 
 | Ano de Referência | Valor do Resultado | Observação |
-| --- | --- | --- |
+| :---: | :---: | :---: |
 | {input_ano_ref} | {input_resultado} | {input_observacao} |
 
 ### ÁREA RESPONSÁVEL PELA AÇÃO (Detran-SP)

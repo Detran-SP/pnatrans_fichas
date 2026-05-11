@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh issue *)",
+      "Bash(python3 -c \"from docx.oxml.shared import OxmlElement; from docx.enum.table import WD_TABLE_ALIGNMENT; print\\(dir\\(WD_TABLE_ALIGNMENT\\)\\)\")",
+      "Bash(python3 *)",
+      "Bash(.venv/bin/python3 *)",
+      "Bash(quarto --version)",
+      "Bash(quarto pandoc *)"
+    ]
+  }
+}
